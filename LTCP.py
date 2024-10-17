@@ -97,3 +97,49 @@ ltcp_image = calculate_ltcp(image, triangles)
 # Output Image Creation: The LTCP values are stored in a new image, where each pixel's LTCP value represents the texture in that local region of the original image.
 #
 # Feature Extraction: The LTCP image captures the local intensity variations in the form of binary patterns. This transformed image can then be used as input to a CNN for tasks like disease detection, enhancing texture-based features.
+
+
+import cv2
+import numpy as np
+
+def segment_tumor(image_path):
+    # Step 1: Load the image
+    image = cv2.imread(image_path)
+    
+    # Step 2: Convert the image to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Step 3: Apply Gaussian Blur to reduce noise and smooth the image
+    blurred_image = cv2.GaussianBlur(gray_image, (5, 5), 0)
+
+    # Step 4: Apply Otsu's thresholding to segment the tumor area
+    _, thresholded_image = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    # Step 5: Apply morphological operations to remove small noise and fill gaps
+    kernel = np.ones((3, 3), np.uint8)
+    morphed_image = cv2.morphologyEx(thresholded_image, cv2.MORPH_CLOSE, kernel, iterations=2)
+    
+    # Step 6: Detect contours of the segmented region
+    contours, _ = cv2.findContours(morphed_image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Step 7: Draw the contours on the original image
+    segmented_image = image.copy()
+    cv2.drawContours(segmented_image, contours, -1, (0, 255, 0), 2)  # Draw contours in green
+
+    # Step 8: Extract the segmented tumor area
+    tumor_mask = np.zeros_like(gray_image)
+    cv2.drawContours(tumor_mask, contours, -1, 255, -1)  # Fill the tumor region with white
+
+    # Apply the mask to get the segmented tumor
+    tumor_segment = cv2.bitwise_and(image, image, mask=tumor_mask)
+
+    # Save or display the result
+    cv2.imwrite('segmented_tumor.png', tumor_segment)
+    cv2.imshow('Segmented Tumor', tumor_segment)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+    return tumor_segment
+
+# Example usage
+segmented_image = segment_tumor('tumor_image.png')
